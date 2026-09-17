@@ -408,5 +408,11 @@ routable IPs, email addresses and anything key-shaped, plus whatever you put
 in `.private-terms.txt` — which is gitignored, because shipping your own
 denylist publishes the exact list it exists to suppress.
 
+It also checks who your commits say they are from — the one thing a scanner
+that reads *files* structurally cannot see, because an author name lives in
+commit metadata. If neither your repo nor your global config sets `user.name`,
+git doesn't refuse. It guesses, from your OS account and your machine's
+hostname, and the commit succeeds looking completely normal.
+
 Run it before every push. It is the one test here that protects something you
 can't get back.

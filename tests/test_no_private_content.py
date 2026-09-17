@@ -150,28 +150,40 @@ class NothingStructural(unittest.TestCase):
         self.assertFalse(findings("curl http://127.0.0.1:8080/health"))
         self.assertFalse(findings("open ~/agents/main/CLAUDE.md"))
 
+        # The shape git invents when no identity is configured: your account
+        # name at your laptop's hostname.
+        self.assertTrue(findings("someone@their-MacBook-Pro.local"))
+        self.assertFalse(findings("1234567+handle@users.noreply.github.com"))
+
+
+def private_terms():
+    """Your own words, from a file that is not in the repo.
+
+    Kept inside the repo by default, and gitignored — the same trade the config
+    makes. Set SESSION_VITALS_PRIVATE_TERMS if you would rather it never sat in
+    the directory at all. Returns None when there is no list, which is a
+    different thing from an empty one.
+    """
+    path = (os.environ.get("SESSION_VITALS_PRIVATE_TERMS")
+            or os.path.join(REPO, ".private-terms.txt"))
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return [ln.strip() for ln in f
+                if ln.strip() and not ln.lstrip().startswith("#")]
+
+
+NO_LIST = (".private-terms.txt not present — structural checks only. Copy "
+           ".private-terms.example.txt to .private-terms.txt and fill it in "
+           "before you publish.")
+
 
 class NothingPersonal(unittest.TestCase):
-    """Your own words, from a file that is not in the repo."""
-
-    def terms(self):
-        # Kept inside the repo by default, and gitignored — the same trade the
-        # config makes. Set SESSION_VITALS_PRIVATE_TERMS if you would rather it
-        # never sat in the directory at all.
-        path = (os.environ.get("SESSION_VITALS_PRIVATE_TERMS")
-                or os.path.join(REPO, ".private-terms.txt"))
-        if not os.path.isfile(path):
-            return None
-        with open(path, encoding="utf-8") as f:
-            return [ln.strip() for ln in f
-                    if ln.strip() and not ln.lstrip().startswith("#")]
 
     def test_none_of_your_private_terms_appear(self):
-        terms = self.terms()
+        terms = private_terms()
         if terms is None:
-            self.skipTest(".private-terms.txt not present — structural checks only. "
-                          "Copy .private-terms.example.txt to .private-terms.txt "
-                          "and fill it in before you publish.")
+            self.skipTest(NO_LIST)
         bad = []
         for name in files_to_check():
             low = read(name).lower()
@@ -179,6 +191,48 @@ class NothingPersonal(unittest.TestCase):
                 if t.lower() in low:
                     bad.append("%s contains a private term" % name)
         self.assertEqual(bad, [], "\n" + "\n".join(sorted(set(bad))))
+
+
+class NobodysNameIsInTheHistory(unittest.TestCase):
+    """Who the commits say they are from.
+
+    This is the one the content scan above structurally cannot reach: an author
+    name lives in commit metadata, not in any file, so a scanner that reads
+    files finds nothing and reports clean. GitHub shows it on every commit and
+    every blame line.
+
+    It is also the easiest one to hit by accident. If neither the repo nor your
+    global config sets `user.name`, git does not refuse — it *guesses*, from
+    your operating system account and your machine's hostname. The guess is
+    your real name and `you@your-laptop.local`. Nothing warns you; the commit
+    just succeeds.
+    """
+
+    def setUp(self):
+        if not in_a_git_repo():
+            self.skipTest("not a git repository yet")
+        out = git("log", "--format=%an%n%ae%n%cn%n%ce").stdout
+        self.identities = sorted(set(x.strip() for x in out.splitlines() if x.strip()))
+        if not self.identities:
+            self.skipTest("no commits yet")
+
+    def test_no_real_name_or_machine_name_on_any_commit(self):
+        terms = private_terms() or []
+        bad = []
+        for who in self.identities:
+            for hit in findings(who):
+                bad.append("%s: %s" % (who, hit))
+            for t in terms:
+                if t.lower() in who.lower():
+                    bad.append("%s: contains a private term" % who)
+        self.assertEqual(sorted(set(bad)), [], "\n" + "\n".join(sorted(set(bad))) + """
+
+Fix it before you push — history is the part you cannot quietly edit later:
+
+    git config --local user.name  "your-github-handle"
+    git config --local user.email "ID+handle@users.noreply.github.com"
+    git commit --amend --reset-author --no-edit     # unpushed commits only
+""")
 
 
 class GitignoreIsDoingItsJob(unittest.TestCase):
