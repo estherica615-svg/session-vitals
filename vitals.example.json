@@ -1,0 +1,79 @@
+{
+  "agents": {
+    "main": {
+      "name": "Main",
+      "home": "~/agents/main",
+      "settings": "~/.claude/settings.json"
+    }
+  },
+
+  "startup_checks": {
+    "settings": [
+      {"label": "effort", "key": "effortLevel", "expect": "high",
+       "if_unset": "not set — running whatever the default is today"},
+      {"label": "permission mode", "key": "permissions.defaultMode",
+       "expect": "bypassPermissions",
+       "if_unset": "not set — an unattended session will block on a prompt nobody is there to answer"},
+      {"label": "model", "key": "model"}
+    ],
+
+    "env": [
+      {"label": "MCP timeout", "key": "MCP_TOOL_TIMEOUT",
+       "if_set": "{value} ms",
+       "if_unset": "unset = 100,000,000 ms (27.8 hours — there is no timeout)"},
+      {"label": "feedback survey", "key": "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY",
+       "if_set": "disabled",
+       "if_unset": "enabled — a modal can take the input box, and keystrokes sent to the pane go to the modal"}
+    ],
+
+    "hooks": [
+      {"label": "Stop hook", "event": "Stop",
+       "if_unset": "not registered — replies routed by the Stop hook are dropped silently"}
+    ],
+
+    "files": [
+      {"label": "CLAUDE.md", "path": "{home}/CLAUDE.md"},
+      {"label": "scheduled-task notes", "path": "{home}/wake_commands.md"}
+    ],
+
+    "processes": [
+      {"label": "relay", "pattern": "your-relay.mjs",
+       "if_unset": "not running — nothing will reach this session from outside"}
+    ],
+
+    "http": [
+      {"label": "local server", "url": "http://127.0.0.1:8080/health", "timeout": 2}
+    ],
+
+    "freshness": [
+      {"label": "nightly job", "path": "~/somewhere/nightly.log", "max_age_hours": 30}
+    ]
+  },
+
+  "compact": {
+    "direct_mode": "direct",
+    "prefix_chars": ["[", "\u3010"],
+
+    "detect": [
+      {"mode": "long_running_task", "contains": "[task]"},
+      {"mode": "scheduled",   "prefix": "[wake "},
+      {"mode": "inbound_chat", "prefix": "[chat "}
+    ],
+
+    "header": "[post-compaction check | {time}]\n\nYou have just been through a context compaction. Everything below points at\nwhere the truth is. None of it IS the truth — check the live state before you\nact on any of it.\n",
+
+    "blocks": {
+      "long_running_task": "You were in the middle of a long-running task.\n- Fetch the current state from the source of truth before doing anything.\n- **You may have already taken this turn's action before the compaction.**\n  Look first; do not take it twice.\n- A compaction is not a restart. Whatever you were assigned is still assigned.",
+
+      "scheduled": "You woke yourself on a schedule. **Nobody is talking to you.**\n- The commands for scheduled runs are in `{home}/wake_commands.md`. Read that\n  file when you need them — they are deliberately not in CLAUDE.md, so that a\n  compaction summary cannot leave you with a half-remembered command.\n- Leave a record of what you did before you finish. Nobody is watching this\n  terminal; the record is the only way the run is visible.",
+
+      "inbound_chat": "Something outside sent you a message.\n- Check for unread items before replying, rather than replying to the one\n  message that happened to survive the compaction.\n- Use the tools for this, not hand-rolled HTTP. After a compaction the shape of\n  your tools is one of the first things to go fuzzy.",
+
+      "direct": "A person is typing to you directly.\n- You cannot tell from the text alone which person it is. **Ask, don't guess.**",
+
+      "unknown": "Cannot tell what you were doing.\n- Do not guess. Read the recent turns and confirm before you say anything."
+    },
+
+    "footer": "\nIf the context starts feeling heavy again, write a short handover note before\nyou continue — where you got to, what is happening around you, what has been\nagreed, and which threads are still open.\n"
+  }
+}

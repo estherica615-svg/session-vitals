@@ -1,0 +1,36 @@
+# Copy to `.private-terms.txt`, which is gitignored, and fill it in.
+#
+# One term per line. `tests/test_no_private_content.py` fails if any of them
+# appears in a file this repo would publish. The match is case-insensitive
+# substring — no regex — because the point is to be impossible to get subtly
+# wrong.
+#
+# This is the half of the scan that no shipped denylist could do for you: the
+# structural checks catch *kinds* of string (home directories, IPs, keys), and
+# these catch *your* strings. Neither finds what the other finds.
+#
+# What belongs here is anything that identifies a person or a machine, and
+# anything that would only exist in a real conversation:
+
+# the names you call each other, including nicknames and the name your agents
+# use for you — these are what end up in a fixture when you paste a real
+# message in to reproduce a bug
+# your-name
+# what-your-agent-calls-you
+# each-agent's-name
+
+# your account name, as it appears in paths
+# your-unix-username
+
+# hosts and domains you run
+# your-server.example
+# your-app.example
+
+# file and database names that only exist in your setup
+# yourdata.db
+
+# anything private with a name: a project, a pet, an in-joke, a place
+# ...
+
+# Add to this whenever you catch something by hand. Every entry here is a leak
+# that will not happen twice.

@@ -1,0 +1,41 @@
+# ── Your agents. None of this belongs in a repository. ───────────────────
+#
+# This repo has no data directory, which makes it feel safer than it is. The
+# way it leaks is not a stray database — it's your real configuration, your
+# real transcripts, and your real conversations ending up in a config file, a
+# fixture, or a comment. `tests/test_no_private_content.py` is the other half
+# of this file; neither one is enough alone.
+#
+# Every comment here is on its own line, and has to stay that way: git only
+# treats `#` as a comment at the START of a line. `vitals.json  # yours` is a
+# pattern matching a file literally called "vitals.json  # yours", i.e.
+# nothing — which looks exactly like a rule that works.
+
+# Your live config: agent names, home directories, and every word you inject
+# into their context. `vitals.example.json` is the one that gets committed.
+vitals.json
+
+# Anything else you keep next to it
+vitals.*.json
+!vitals.example.json
+
+# What the hook writes down. Contains session ids, working directories, and
+# which channel each wake-up came from.
+*.log
+logs/
+
+# The words that would identify you, for tests/test_no_private_content.py.
+# Committing this file would publish exactly the list it exists to keep out.
+.private-terms.txt
+
+# Transcripts and pane captures. If you copy one here to debug against, this
+# is the line that stops you publishing it.
+*.jsonl
+transcripts/
+captures/
+scratch/
+
+# ── Junk ─────────────────────────────────────────────────────────────────
+.DS_Store
+__pycache__/
+*.pyc

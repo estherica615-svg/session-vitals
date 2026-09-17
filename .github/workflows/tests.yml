@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The versions the README claims to support. If one goes red, the claim
+        # was wrong — which is the point of running all three.
+        python: ["3.9", "3.11", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history: one of the privacy tests checks that nothing
+          # gitignored was ever committed, and a shallow clone would only see
+          # the last commit and quietly pass. A privacy test that cannot fail
+          # is worse than no privacy test, because it gets trusted.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Run the tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check nothing was installed
+        # The README says "no dependencies". If pip has anything beyond the
+        # bundled tooling, that claim is no longer true.
+        run: |
+          pip list --format=freeze --exclude pip --exclude setuptools --exclude wheel > /tmp/installed.txt
+          if [ -s /tmp/installed.txt ]; then
+            echo "Unexpected packages installed:"; cat /tmp/installed.txt; exit 1
+          fi
+          echo "Nothing installed. Standard library only."
