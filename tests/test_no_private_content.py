@@ -35,14 +35,20 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEXT_SUFFIXES = (".md", ".py", ".sh", ".json", ".txt", ".yml", ".yaml",
                  ".toml", ".jsonl", ".cfg", ".example")
 
-# Two files are exempt, and only two. This one, because describing a pattern
-# means containing it. And the denylist, because it is a list of the exact
-# strings the denylist forbids — scanning it always finds everything, which is
-# a finding with no information in it.
-EXEMPT = {
-    os.path.relpath(os.path.abspath(__file__), REPO),
-    ".private-terms.txt",
-}
+# Exemptions, kept as narrow as they will go.
+#
+# The denylist is exempt from everything: it is a list of the exact strings it
+# forbids, so scanning it finds all of them, which is a finding with no
+# information in it.
+#
+# This file is exempt from the *structural* checks only, because describing a
+# pattern means containing an example of it. It is NOT exempt from the denylist
+# — and that distinction is not academic. A real server IP sat in the example
+# below for one afternoon, put there because a real value was the nearest thing
+# to hand, and the wholesale exemption meant the suite was blind to the one
+# file most likely to contain a real value pasted in for realism.
+TERMS_EXEMPT = {".private-terms.txt"}
+STRUCTURAL_EXEMPT = TERMS_EXEMPT | {os.path.relpath(os.path.abspath(__file__), REPO)}
 
 
 def git(*args):
@@ -54,7 +60,7 @@ def in_a_git_repo():
     return git("rev-parse", "--git-dir").returncode == 0
 
 
-def files_to_check():
+def files_to_check(exempt=frozenset()):
     """What a push would actually publish.
 
     Inside a repo that is `git ls-files`, which is the honest answer: a file
@@ -76,7 +82,7 @@ def files_to_check():
 
     keep = []
     for n in names:
-        if n in EXEMPT or n.endswith(".example.txt"):
+        if n in exempt:
             continue
         if n.endswith(TEXT_SUFFIXES) or "." not in os.path.basename(n):
             keep.append(n)
@@ -135,7 +141,7 @@ class NothingStructural(unittest.TestCase):
 
     def test_no_identifying_strings_in_anything_publishable(self):
         bad = []
-        for name in files_to_check():
+        for name in files_to_check(STRUCTURAL_EXEMPT):
             for hit in findings(read(name)):
                 bad.append("%s: %s" % (name, hit))
         self.assertEqual(bad, [], "\n" + "\n".join(bad))
@@ -185,7 +191,7 @@ class NothingPersonal(unittest.TestCase):
         if terms is None:
             self.skipTest(NO_LIST)
         bad = []
-        for name in files_to_check():
+        for name in files_to_check(TERMS_EXEMPT):
             low = read(name).lower()
             for t in terms:
                 if t.lower() in low:
